@@ -6,7 +6,6 @@ include_directories(include)
 
 # app library
 file(GLOB_RECURSE APP_SOURCES "src/*.cpp")
-list(REMOVE_ITEM APP_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp")
 add_library(MyAppLib STATIC ${APP_SOURCES})
 find_package(glfw3 CONFIG REQUIRED)
 target_link_libraries(MyAppLib PRIVATE glfw)
@@ -18,7 +17,7 @@ find_package(OpenGL REQUIRED)
 target_link_libraries(MyAppLib PRIVATE OpenGL::GL)
 
 # app executable
-add_executable(MyApp "src/main.cpp")
+add_executable(MyApp "main.cpp")
 target_link_libraries(MyApp PRIVATE MyAppLib)
 target_link_libraries(MyApp PRIVATE asio::asio)
 

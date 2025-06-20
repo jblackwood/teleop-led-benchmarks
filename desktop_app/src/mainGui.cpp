@@ -6,13 +6,15 @@
 
 int mainGui() {
     glfwInit();
-    GLFWwindow* window = glfwCreateWindow(720, 720, "ImGui Example", NULL, NULL);
+    GLFWwindow *window =
+        glfwCreateWindow(720, 720, "ImGui Example", NULL, NULL);
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1);
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO(); (void)io;
+    ImGuiIO &io = ImGui::GetIO();
+    (void)io;
 
     ImGui::StyleColorsDark();
 
