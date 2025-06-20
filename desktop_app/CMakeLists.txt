@@ -2,7 +2,10 @@ cmake_minimum_required(VERSION 3.10)
 
 project(MyApp)
 
-include_directories(include)
+include_directories(
+    include
+    third_party
+)
 
 # app library
 file(GLOB_RECURSE APP_SOURCES "src/*.cpp")
@@ -15,6 +18,9 @@ find_package(asio CONFIG REQUIRED)
 target_link_libraries(MyAppLib PRIVATE asio::asio)
 find_package(OpenGL REQUIRED)
 target_link_libraries(MyAppLib PRIVATE OpenGL::GL)
+find_package(nlohmann_json CONFIG REQUIRED)
+target_link_libraries(MyAppLib PRIVATE nlohmann_json::nlohmann_json)
+set(nlohmann-json_IMPLICIT_CONVERSIONS OFF)
 
 # app executable
 add_executable(MyApp "main.cpp")
@@ -25,6 +31,7 @@ target_link_libraries(MyApp PRIVATE asio::asio)
 file(GLOB_RECURSE TEST_SOURCES "tests/*.cpp")
 add_executable(MyTest ${TEST_SOURCES})
 target_link_libraries(MyTest PRIVATE MyAppLib)
+target_link_libraries(MyTest PRIVATE asio::asio)
 
 # gtest
 enable_testing()
