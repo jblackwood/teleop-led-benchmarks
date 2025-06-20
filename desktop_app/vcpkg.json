@@ -1,5 +1,6 @@
 {
   "dependencies": [
+    "asio",
     "glfw3",
     {
       "name": "imgui",
@@ -8,6 +9,6 @@
         "opengl3-binding"
       ]
     },
-    "boost-beast"
+    "gtest"
   ]
 }
