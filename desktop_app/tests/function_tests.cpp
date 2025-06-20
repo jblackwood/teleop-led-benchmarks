@@ -1,6 +1,6 @@
 #include <functional>
 #include <gtest/gtest.h>
-#include "fast_led_teleop/utils.hpp"
+#include "utils.hpp"
 
 namespace utils = fast_led_teleop::utils;
 

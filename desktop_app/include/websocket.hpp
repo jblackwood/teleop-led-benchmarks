@@ -9,7 +9,7 @@ namespace fast_led_teleop::websocket {
 typedef websocketpp::server<websocketpp::config::asio> server;
 
 struct EchoServer {
-    EchoServer();
+    EchoServer(asio::io_context *io_service);
     void run(uint16_t port);
 
   private:

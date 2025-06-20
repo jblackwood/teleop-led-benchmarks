@@ -128,8 +128,9 @@
 
 #define ASIO_STANDALONE
 
-#include "fast_led_teleop/utils.hpp"
-#include "fast_led_teleop/websocket.hpp"
+#include "utils.hpp"
+#include "websocket.hpp"
+#include <asio.hpp>
 #include <iostream>
 
 namespace utils = fast_led_teleop::utils;
@@ -145,7 +146,9 @@ int main() {
         utils::callV2(2, 20, [](int arg1, int arg2) { return arg1 * arg2; });
     std::cout << resultv2 << std::endl;
 
-    websocket::EchoServer server{};
+
+    asio::io_context io;
+    websocket::EchoServer server{&io};
     std::cout << "WebSocket echo server listening on port 9002..." << std::endl;
     server.run(9002);
 
