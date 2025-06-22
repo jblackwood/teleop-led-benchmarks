@@ -27,3 +27,8 @@ Run tests
 ```
 ctest --test-dir build
 ```
+
+Run filtered tests
+```
+./build/MyTest --gtest_filter=AppTest.*
+```
