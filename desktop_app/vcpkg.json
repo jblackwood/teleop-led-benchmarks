@@ -1,6 +1,5 @@
 {
   "dependencies": [
-    "asio",
     "glfw3",
     "gtest",
     {
@@ -10,6 +9,7 @@
         "opengl3-binding"
       ]
     },
-    "nlohmann-json"
+    "nlohmann-json",
+    "boost-beast"
   ]
 }

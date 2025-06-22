@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.10)
 project(MyApp)
 
 include_directories(
-    include
+    src
     third_party
 )
 
@@ -14,8 +14,8 @@ find_package(glfw3 CONFIG REQUIRED)
 target_link_libraries(MyAppLib PRIVATE glfw)
 find_package(imgui CONFIG REQUIRED)
 target_link_libraries(MyAppLib PRIVATE imgui::imgui)
-find_package(asio CONFIG REQUIRED)
-target_link_libraries(MyAppLib PRIVATE asio::asio)
+find_package(boost_beast CONFIG REQUIRED)
+target_link_libraries(MyAppLib PRIVATE Boost::beast)
 find_package(OpenGL REQUIRED)
 target_link_libraries(MyAppLib PRIVATE OpenGL::GL)
 find_package(nlohmann_json CONFIG REQUIRED)
@@ -25,13 +25,13 @@ set(nlohmann-json_IMPLICIT_CONVERSIONS OFF)
 # app executable
 add_executable(MyApp "main.cpp")
 target_link_libraries(MyApp PRIVATE MyAppLib)
-target_link_libraries(MyApp PRIVATE asio::asio)
+target_link_libraries(MyApp PRIVATE Boost::beast)
 
 # test executable
 file(GLOB_RECURSE TEST_SOURCES "tests/*.cpp")
 add_executable(MyTest ${TEST_SOURCES})
 target_link_libraries(MyTest PRIVATE MyAppLib)
-target_link_libraries(MyTest PRIVATE asio::asio)
+target_link_libraries(MyTest PRIVATE Boost::beast)
 
 # gtest
 enable_testing()
