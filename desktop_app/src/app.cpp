@@ -76,17 +76,15 @@ namespace fast_led_teleop::desktop {
                  [](boost::system::error_code ec) {
                 if (!ec) {
                     std::cout << "Client connected!\n";
-
-                    // You can now use socket_ for read/write
-                    // For example: start_read(); or start_write();
-
-                    // Optionally create a new socket_ if you want to keep accepting
                 } else {
                     std::cerr << "Accept failed: " << ec.message() << "\n";
                 }
             }
             );
             ioc.run_one();
+            
+            // If app is closed run_one will return without assigning a socket
+            // so need to check for that case.
             std::cout<< "socket accept call done"<<std::endl;
             if (!socket.is_open()){
                 std::cout << "Socket not open" << std::endl;
@@ -211,7 +209,7 @@ namespace fast_led_teleop::desktop {
         std::optional<tcp::acceptor> acceptor_;
     };
 
-    int runApp() {
+    int runApp(const std::atomic<bool>& stopFlag) {
         App app{};
 
         glfwInit();
@@ -226,7 +224,7 @@ namespace fast_led_teleop::desktop {
         ImGui_ImplGlfw_InitForOpenGL(window, true);
         ImGui_ImplOpenGL3_Init("#version 130");
 
-        while (!glfwWindowShouldClose(window)) {
+        while (!glfwWindowShouldClose(window) && !stopFlag.load(std::memory_order_relaxed)) {
             // Render
             glfwPollEvents();
             ImGui_ImplOpenGL3_NewFrame();

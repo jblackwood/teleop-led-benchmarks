@@ -1,5 +1,6 @@
 #pragma once
+#include <atomic>
 
 namespace fast_led_teleop::desktop {
-    void runApp();
+    int runApp(const std::atomic<bool>& stopSignal);
 }
