@@ -21,8 +21,6 @@ target_link_libraries(MyAppLib PRIVATE OpenGL::GL)
 find_package(nlohmann_json CONFIG REQUIRED)
 target_link_libraries(MyAppLib PRIVATE nlohmann_json::nlohmann_json)
 set(nlohmann-json_IMPLICIT_CONVERSIONS OFF)
-find_package(readerwriterqueue CONFIG REQUIRED)
-target_link_libraries(MyAppLib PRIVATE readerwriterqueue::readerwriterqueue)
 
 # app executable
 add_executable(MyApp "main.cpp")

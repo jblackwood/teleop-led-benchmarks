@@ -10,7 +10,6 @@
         "opengl3-binding"
       ]
     },
-    "nlohmann-json",
-    "readerwriterqueue"
+    "nlohmann-json"
   ]
 }

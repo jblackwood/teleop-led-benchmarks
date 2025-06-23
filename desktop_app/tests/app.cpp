@@ -28,7 +28,6 @@ namespace fast_led_teleop::tests {
     TEST(AppTest, ConnectWebsocket) {
         std::atomic<bool> stopFlag{false};
         auto futExitCode = std::async([&stopFlag]() { return desktop::runApp(stopFlag); });
-        std::cout << "App started" << std::endl;
         std::this_thread::sleep_for(std::chrono::seconds(2));
         asio::io_context ioc{};
         tcp::resolver resolver{ioc};
@@ -62,9 +61,7 @@ namespace fast_led_teleop::tests {
         std::this_thread::sleep_for(std::chrono::seconds(2));
 
         // Close the WebSocket connection
-        std::cout << "Closing connection" << std::endl;
         ws.close(websocket::close_code::normal);
-        std::cout << "Connection closed" << std::endl;
 
         // Send the message
         // ws.write(net::buffer(std::string(text)));

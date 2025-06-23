@@ -6,13 +6,11 @@
 #include <future>
 #include <iostream>
 #include <optional>
-#include <queue>
 #include <string>
 #include <vector>
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
-#include "readerwriterqueue.h"
 
 namespace fast_led_teleop::desktop {
     namespace beast = boost::beast;
@@ -24,8 +22,7 @@ namespace fast_led_teleop::desktop {
     constexpr float windowXPadding = 50.0f;
 
     enum class UIEventType {
-        Button1Click,
-        Button2Click
+        SendButtonClick,
     };
 
     struct UIEvent {
@@ -33,7 +30,8 @@ namespace fast_led_teleop::desktop {
     };
 
     enum class IOResultType {
-        WebSocketConnected,
+        WsConnected,
+        WsMsgRecieved,
         Canceled
     };
 
@@ -42,7 +40,7 @@ namespace fast_led_teleop::desktop {
         std::unique_ptr<websocket::stream<tcp::socket>> ws = nullptr;
     };
 
-    void async_waitForWebsocketConnection(asio::io_context& ioc, moodycamel::ReaderWriterQueue<IOResult>& ioResults) {
+    void async_waitForWebsocketConnection(asio::io_context& ioc, std::vector<IOResult>& ioResults) {
         auto const address = asio::ip::make_address("127.0.0.1");
         auto const port = static_cast<unsigned short>(9002);
         tcp::endpoint endpoint{address, port};
@@ -52,6 +50,7 @@ namespace fast_led_teleop::desktop {
             ioc,
             [&ioResults,
              acceptor = std::move(acceptor)](boost::system::error_code ec, tcp::socket socket) {
+                std::cout <<"Async accept handler" << std::endl;
                 if (ec) {
                     std::cerr << "Accept failed: " << ec.message() << "\n";
                     return;
@@ -60,7 +59,7 @@ namespace fast_led_teleop::desktop {
                 // acceptor->close();
                 if (!socket.is_open()) {
                     std::cout << "Socket not open" << std::endl;
-                    ioResults.emplace(IOResult{.type = IOResultType::Canceled});
+                    ioResults.emplace_back(IOResult{.type = IOResultType::Canceled});
                     return;
                 }
 
@@ -87,123 +86,178 @@ namespace fast_led_teleop::desktop {
                     std::abort();
                 }
                 auto res = IOResult{
-                    .type = IOResultType::WebSocketConnected,
+                    .type = IOResultType::WsConnected,
                     .ws = std::move(ws)};
-                ioResults.enqueue(std::move(res));
+                ioResults.push_back(std::move(res));
                 return;
             });
         std::cout << "done async accepting" << std::endl;
     }
 
-    class App {
-    public:
-        App() : ioc_{1},
-                ioResults_{5},
-                showButton1_{true},
-                showButton2_{false},
-                timer_{ioc_, std::chrono::seconds(5)} {
-            async_waitForWebsocketConnection(ioc_, ioResults_);
-            timer_.async_wait([](const boost::system::error_code& ec) {
-                if (!ec) {
-                    std::cout << "Timer expired 1!" << std::endl;
-                } else {
-                    std::cout << "Timer expired 2!" << std::endl;
-                }
-            });
-            std::cout << "starting io thread" << std::endl;
-            ioThread_ = std::thread([this]() { ioc_.run(); });
-        };
-        ~App() {
-            std::cout << "App destructor called" << std::endl;
-            ioc_.stop();
-            ioThread_.join();
-            std::cout << "App destructor done" << std::endl;
-        };
-        App(const App& other) = delete;
-        App& operator=(const App& other) = delete;
-        App(App&& other) = delete;
-        App& operator=(App&& other) = delete;
+    struct AppState {
+        asio::io_context ioc;
+        std::vector<UIEvent> uiEventsToProcess;
+        std::vector<IOResult> ioResults;
+        std::unique_ptr<websocket::stream<tcp::socket>> ws;
+        std::string ws_write_buffer;
+        beast::flat_buffer ws_read_buffer;
+        bool isSendingBlinkCommand;
 
-        void processUiEvents() {
-            for (auto& e : uiEventsToProcess_) {
-                switch (e.type) {
-                case UIEventType::Button1Click:
-                    showButton1_ = false;
-                    showButton2_ = true;
-                    break;
-                case UIEventType::Button2Click:
-                    showButton1_ = true;
-                    showButton2_ = false;
-                }
-            }
-            uiEventsToProcess_.clear();
+        AppState() : ioc{1},
+                     isSendingBlinkCommand{false} {
+            std::cout << "Creating app state" << std::endl;
+            async_waitForWebsocketConnection(ioc, ioResults);
+            std::cout << "Done creating app state" << std::endl;
         };
-
-        void processIOResults() {
-            static IOResult res;
-            while (ioResults_.try_dequeue(res)) {
-                switch (res.type) {
-                case IOResultType::WebSocketConnected:
-                    std::cout << "Websocket connected io result" << std::endl;
-                    ws_ = std::move(res.ws);
-                    ws_->async_read(buffer_,[](boost::system::error_code ec, std::size_t num_bytes){
-                        std::cout << "ec received" << ec << std::endl;
-                        std::cout <<"bytes received" << num_bytes << std::endl;
-                    });
-                    break;
-
-                case IOResultType::Canceled:
-                    std::cout << "IO cancelled" << std::endl;
-                    break;
-                }
-            }
-        };
-
-        void render() {
-            ImGuiViewport* viewport = ImGui::GetMainViewport();
-            ImVec2 windowPos(windowXPadding, viewport->WorkPos.y);
-            ImGui::SetNextWindowPos(windowPos);
-            ImVec2 windowSize((viewport->WorkSize.x) - 2 * windowXPadding,
-                              viewport->WorkSize.y);
-            ImGui::SetNextWindowSize(windowSize);
-            ImGui::Begin("Hello, ImGui!", nullptr,
-                         ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
-                             ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse |
-                             ImGuiWindowFlags_NoBringToFrontOnFocus |
-                             ImGuiWindowFlags_NoNavFocus);
-            ImGui::Text("This is a simple window.");
-            ImGui::Text("This is 2nd text.");
-            if (showButton1_) {
-                if (ImGui::Button("Button 1")) {
-                    uiEventsToProcess_.push_back(UIEvent{.type = UIEventType::Button1Click});
-                };
-            } else if (showButton2_) {
-                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.9f, 0.1f, 0.1f, 1.0f));
-                if (ImGui::Button("Button 2")) {
-                    uiEventsToProcess_.push_back(UIEvent{.type = UIEventType::Button2Click});
-                };
-                ImGui::PopStyleColor();
-            }
-            ImGui::End();
-        };
-
-    private:
-        std::thread ioThread_;
-        asio::io_context ioc_;
-        moodycamel::ReaderWriterQueue<IOResult> ioResults_;
-        std::unique_ptr<websocket::stream<tcp::socket>> ws_;
-        beast::flat_buffer buffer_;
-        bool showButton1_;
-        bool showButton2_;
-        std::vector<UIEvent> uiEventsToProcess_;
-        asio::steady_timer timer_;
+        ~AppState() = default;
+        AppState(const AppState& other) = delete;
+        AppState& operator=(const AppState& other) = delete;
+        AppState(AppState&& other) = delete;
+        AppState& operator=(AppState&& other) = delete;
     };
 
-    int runApp(const std::atomic<bool>& stopFlag) {
-        App app{};
+    void processUiEvents(AppState& s) {
+        for (auto& e : s.uiEventsToProcess) {
+            switch (e.type) {
+            case UIEventType::SendButtonClick: {
+                s.isSendingBlinkCommand = true;
+                s.ws->async_write(boost::asio::buffer("button clicked"),
+                                  [](boost::system::error_code ec, std::size_t bytes_transferred) {
+                                      (void)bytes_transferred;
+                                      if (ec) {
+                                          std::cout << "Error writing to websocket" << std::endl;
+                                          return;
+                                      }
+                                  });
+                break;
+            }
+            }
+        }
+        s.uiEventsToProcess.clear();
+    };
 
+    void ws_async_read(AppState& s) {
+        s.ws->async_read(s.ws_read_buffer, [&s](boost::system::error_code ec, std::size_t num_bytes) mutable {
+            std::cout << "ws bytes received " << num_bytes << "\n";
+            if (ec == websocket::error::closed) {
+                std::cout << "Websocket closed" << std::endl;
+                return;
+            }
+
+            if (ec) {
+                std::cout << "ec received " << ec << std::endl;
+                return;
+            }
+            if (num_bytes == 0) {
+                return;
+            }
+            auto res = IOResult{};
+            res.type = IOResultType::WsMsgRecieved;
+            s.ioResults.push_back(std::move(res));
+            return;
+        });
+    };
+
+    void processIOResults(AppState& s) {
+        for (auto& res : s.ioResults) {
+            switch (res.type) {
+            case IOResultType::WsConnected: {
+                std::cout << "Websocket connected io result" << std::endl;
+                s.ws = std::move(res.ws);
+                ws_async_read(s);
+                break;
+            }
+
+            case IOResultType::WsMsgRecieved: {
+                std::string_view msg{
+                    static_cast<const char*>(s.ws_read_buffer.data().data()),
+                    s.ws_read_buffer.size()};
+                std::cout << "Msg Received " << msg << std::endl;
+                s.ws_read_buffer.consume(s.ws_read_buffer.size());
+                ws_async_read(s);
+                break;
+            }
+
+            case IOResultType::Canceled: {
+                std::cout << "IO cancelled" << std::endl;
+                break;
+            }
+            }
+        }
+        s.ioResults.clear();
+    };
+
+    void render(AppState& s) {
+        ImGuiViewport* viewport = ImGui::GetMainViewport();
+        ImVec2 windowPos(windowXPadding, viewport->WorkPos.y);
+        ImGui::SetNextWindowPos(windowPos);
+        ImVec2 windowSize((viewport->WorkSize.x) - 2 * windowXPadding,
+                          viewport->WorkSize.y);
+        ImGui::SetNextWindowSize(windowSize);
+        ImGui::Begin("Full Screen Window", nullptr,
+                     ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
+                         ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse |
+                         ImGuiWindowFlags_NoBringToFrontOnFocus |
+                         ImGuiWindowFlags_NoNavFocus);
+        ImGui::Text("LED controller command");
+        ImGui::Dummy(ImVec2(0.0f, 100.0f));
+        if (ImGui::Button("Send blink command")) {
+            s.uiEventsToProcess.push_back(UIEvent{.type = UIEventType::SendButtonClick});
+        };
+        ImGui::End();
+    };
+
+    void runAppLoop(AppState& s, GLFWwindow* window, const std::atomic<bool>& stopFlag) {
+        if (glfwWindowShouldClose(window)) {
+            std::cout<<"stopping due to closed window" << std::endl;
+            s.ioc.stop();
+            return;
+        }
+        if (stopFlag.load(std::memory_order_relaxed)) {
+            std::cout<<"stopping due to stop flag" << std::endl;
+            s.ioc.stop();
+            return;
+        }
+
+        // ImGUI new frame setup
+        glfwPollEvents();
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+
+        // Core app logic
+        processUiEvents(s);
+        processIOResults(s);
+        render(s);
+        // ImGui::ShowDemoWindow(); // if wanting to see ui examples
+
+        // ImGui render
+        ImGui::Render();
+        int display_w, display_h;
+        glfwGetFramebufferSize(window, &display_w, &display_h);
+        glViewport(0, 0, display_w, display_h);
+        glClear(GL_COLOR_BUFFER_BIT);
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+        /**
+         * glfwSwapInterval(1) above enables vsync.
+         * That means glfwSwapBuffers() blocks until the display's
+         * next refresh (e.g., 1/60s on a 60Hz screen).
+         */
+        glfwSwapBuffers(window);
+
+        // Need to capture window pointer by value or else
+        // it pops off the stack frame and get's overwritten, causing bugs.
+        asio::post(s.ioc, [&s, window, &stopFlag]() {
+            runAppLoop(s, window, stopFlag);
+        });
+    }
+
+    int runApp(const std::atomic<bool>& stopFlag) {
+        AppState s{};
+        std::cout << "io results size " << s.ioResults.size() << std::endl;
         glfwInit();
-        GLFWwindow* window = glfwCreateWindow(720, 720, "ImGui Example", NULL, NULL);
+        GLFWwindow* window = glfwCreateWindow(720, 720, "Teleop LED Benchmarking", NULL, NULL);
         glfwMakeContextCurrent(window);
         glfwSwapInterval(1);
         IMGUI_CHECKVERSION();
@@ -213,36 +267,9 @@ namespace fast_led_teleop::desktop {
         ImGui::StyleColorsDark();
         ImGui_ImplGlfw_InitForOpenGL(window, true);
         ImGui_ImplOpenGL3_Init("#version 130");
-
-        while (!glfwWindowShouldClose(window) && !stopFlag.load(std::memory_order_relaxed)) {
-            // Render
-            glfwPollEvents();
-            ImGui_ImplOpenGL3_NewFrame();
-            ImGui_ImplGlfw_NewFrame();
-            ImGui::NewFrame();
-
-            // Core app logic
-            app.processUiEvents();
-            app.processIOResults();
-            app.render();
-
-            // ImGui::ShowDemoWindow();
-            ImGui::Render();
-            int display_w, display_h;
-            glfwGetFramebufferSize(window, &display_w, &display_h);
-            glViewport(0, 0, display_w, display_h);
-            glClear(GL_COLOR_BUFFER_BIT);
-            ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-
-            /**
-             * glfwSwapInterval(1) above enables vsync.
-             * That means glfwSwapBuffers() blocks until the display's
-             * next refresh (e.g., 1/60s on a 60Hz screen).
-             */
-            glfwSwapBuffers(window);
-        }
-        std::cout << "Exited loop" << std::endl;
-
+        // auto work_guard = boost::asio::make_work_guard(s.ioc);
+        runAppLoop(s, window, stopFlag);
+        s.ioc.run();
         ImGui_ImplOpenGL3_Shutdown();
         ImGui_ImplGlfw_Shutdown();
         ImGui::DestroyContext();
