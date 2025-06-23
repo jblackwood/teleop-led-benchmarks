@@ -17,6 +17,7 @@ namespace fast_led_teleop::desktop {
     namespace http = beast::http;
     namespace websocket = beast::websocket;
     namespace asio = boost::asio;
+    using chrono_time_point = std::chrono::_V2::system_clock::time_point;
     using tcp = boost::asio::ip::tcp;
 
     constexpr float windowXPadding = 50.0f;
@@ -50,7 +51,7 @@ namespace fast_led_teleop::desktop {
             ioc,
             [&ioResults,
              acceptor = std::move(acceptor)](boost::system::error_code ec, tcp::socket socket) {
-                std::cout <<"Async accept handler" << std::endl;
+                std::cout << "Async accept handler" << std::endl;
                 if (ec) {
                     std::cerr << "Accept failed: " << ec.message() << "\n";
                     return;
@@ -102,9 +103,12 @@ namespace fast_led_teleop::desktop {
         std::string ws_write_buffer;
         beast::flat_buffer ws_read_buffer;
         bool isSendingBlinkCommand;
+        chrono_time_point timeSendBlinkCommand;
+        std::chrono::duration<double, std::milli> blinkLatency;
 
         AppState() : ioc{1},
-                     isSendingBlinkCommand{false} {
+                     isSendingBlinkCommand{false},
+                     blinkLatency{0.0f} {
             std::cout << "Creating app state" << std::endl;
             async_waitForWebsocketConnection(ioc, ioResults);
             std::cout << "Done creating app state" << std::endl;
@@ -121,6 +125,7 @@ namespace fast_led_teleop::desktop {
             switch (e.type) {
             case UIEventType::SendButtonClick: {
                 s.isSendingBlinkCommand = true;
+                s.timeSendBlinkCommand = std::chrono::high_resolution_clock::now();
                 s.ws->async_write(boost::asio::buffer("button clicked"),
                                   [](boost::system::error_code ec, std::size_t bytes_transferred) {
                                       (void)bytes_transferred;
@@ -174,6 +179,9 @@ namespace fast_led_teleop::desktop {
                     s.ws_read_buffer.size()};
                 std::cout << "Msg Received " << msg << std::endl;
                 s.ws_read_buffer.consume(s.ws_read_buffer.size());
+                s.isSendingBlinkCommand = false;
+                s.blinkLatency =
+                    std::chrono::high_resolution_clock::now() - s.timeSendBlinkCommand;
                 ws_async_read(s);
                 break;
             }
@@ -199,22 +207,31 @@ namespace fast_led_teleop::desktop {
                          ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse |
                          ImGuiWindowFlags_NoBringToFrontOnFocus |
                          ImGuiWindowFlags_NoNavFocus);
-        ImGui::Text("LED controller command");
-        ImGui::Dummy(ImVec2(0.0f, 100.0f));
-        if (ImGui::Button("Send blink command")) {
-            s.uiEventsToProcess.push_back(UIEvent{.type = UIEventType::SendButtonClick});
-        };
+
+        ImGui::Dummy(ImVec2(0.0f, 20.0f));
+        if (s.ws == nullptr) {
+            ImGui::Text("Waiting for esp32 to connect to websocket");
+        } else {
+            ImGui::Text("esp32 connected");
+            ImGui::BeginDisabled(s.isSendingBlinkCommand);
+            if (ImGui::Button("Send blink command")) {
+                s.uiEventsToProcess.push_back(UIEvent{.type = UIEventType::SendButtonClick});
+            };
+            ImGui::EndDisabled();
+            ImGui::SameLine();
+            ImGui::Text("last blink latency %.2f ms", s.blinkLatency.count());
+        }
         ImGui::End();
     };
 
     void runAppLoop(AppState& s, GLFWwindow* window, const std::atomic<bool>& stopFlag) {
         if (glfwWindowShouldClose(window)) {
-            std::cout<<"stopping due to closed window" << std::endl;
+            std::cout << "stopping due to closed window" << std::endl;
             s.ioc.stop();
             return;
         }
         if (stopFlag.load(std::memory_order_relaxed)) {
-            std::cout<<"stopping due to stop flag" << std::endl;
+            std::cout << "stopping due to stop flag" << std::endl;
             s.ioc.stop();
             return;
         }
