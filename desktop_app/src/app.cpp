@@ -9,10 +9,10 @@
 #include <queue>
 #include <string>
 #include <vector>
-#include "ThreadPool.h"
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
+#include "readerwriterqueue.h"
 
 namespace fast_led_teleop::desktop {
     namespace beast = boost::beast;
@@ -33,101 +33,91 @@ namespace fast_led_teleop::desktop {
     };
 
     enum class IOResultType {
-        AcceptorOpened,
         WebSocketConnected,
         Canceled
     };
 
     struct IOResult {
         IOResultType type;
-        std::optional<tcp::acceptor> acceptor;
-        std::optional<websocket::stream<tcp::socket>> ws;
+        std::unique_ptr<websocket::stream<tcp::socket>> ws = nullptr;
     };
 
-    IOResult openAcceptor(asio::io_context& ioc) {
-        try {
-            auto const address = asio::ip::make_address("127.0.0.1");
-            auto const port = static_cast<unsigned short>(9002);
-            return IOResult{
-                .type = IOResultType::AcceptorOpened,
-                .acceptor = tcp::acceptor{
-                    ioc, {address, port}}};
-        } catch (beast::system_error const& se) {
-            std::cerr << "Error opening acceptor: " << se.code().message() << std::endl;
-            std::abort();
-
-        } catch (std::exception const& e) {
-            std::cerr << "Error with acceptor: " << e.what() << std::endl;
-            std::abort();
-        }
-    }
-
-    IOResult waitForWebsocketConnection(
-        asio::io_context& ioc,
-        tcp::acceptor& acceptor) {
-        try {
-            // This will receive the new connection
-            tcp::socket socket{ioc};
-            
-            // Block until we get a connection
-            std::cout<< "socket accept call started"<<std::endl;
-            acceptor.async_accept(
-                socket,
-                 [](boost::system::error_code ec) {
-                if (!ec) {
-                    std::cout << "Client connected!\n";
-                } else {
+    void async_waitForWebsocketConnection(asio::io_context& ioc, moodycamel::ReaderWriterQueue<IOResult>& ioResults) {
+        auto const address = asio::ip::make_address("127.0.0.1");
+        auto const port = static_cast<unsigned short>(9002);
+        tcp::endpoint endpoint{address, port};
+        auto acceptor = std::make_unique<tcp::acceptor>(ioc, endpoint);
+        std::cout << "async accepting" << std::endl;
+        acceptor->async_accept(
+            ioc,
+            [&ioResults,
+             acceptor = std::move(acceptor)](boost::system::error_code ec, tcp::socket socket) {
+                if (ec) {
                     std::cerr << "Accept failed: " << ec.message() << "\n";
+                    return;
                 }
-            }
-            );
-            ioc.run_one();
-            
-            // If app is closed run_one will return without assigning a socket
-            // so need to check for that case.
-            std::cout<< "socket accept call done"<<std::endl;
-            if (!socket.is_open()){
-                std::cout << "Socket not open" << std::endl;
-                return IOResult{.type = IOResultType::Canceled};
-            }
-            
-            // Construct the stream by moving in the socket
-            websocket::stream<tcp::socket> ws{std::move(socket)};
+                std::cout << "Client connected!" << std::endl;
+                // acceptor->close();
+                if (!socket.is_open()) {
+                    std::cout << "Socket not open" << std::endl;
+                    ioResults.emplace(IOResult{.type = IOResultType::Canceled});
+                    return;
+                }
 
-            // Set a decorator to change the Server of the handshake
-            ws.set_option(websocket::stream_base::decorator(
-                [](websocket::response_type& res) {
-                    res.set(http::field::server,
-                            std::string(BOOST_BEAST_VERSION_STRING) +
-                                " websocket-server-sync");
-                }));
+                // Construct the stream by moving in the socket
+                auto ws = std::make_unique<websocket::stream<tcp::socket>>(std::move(socket));
 
-            // Accept the websocket handshake
-            ws.accept();
-            return IOResult{
-                .type = IOResultType::WebSocketConnected,
-                .ws = std::move(ws)};
-        } catch (beast::system_error const& se) {
-            std::cerr << "Error: " << se.code().message() << std::endl;
-            std::abort();
+                // Set a decorator to change the Server of the handshake
+                ws->set_option(websocket::stream_base::decorator(
+                    [](websocket::response_type& res) {
+                        res.set(http::field::server,
+                                std::string(BOOST_BEAST_VERSION_STRING) +
+                                    " websocket-server-sync");
+                    }));
 
-        } catch (std::exception const& e) {
-            std::cerr << "Error: " << e.what() << std::endl;
-            std::abort();
-        }
+                // Accept the websocket handshake. This will block the io thread, but should be fast
+                try {
+                    ws->accept();
+                } catch (beast::system_error const& se) {
+                    std::cerr << "Error opening acceptor: " << se.code().message() << std::endl;
+                    std::abort();
+
+                } catch (std::exception const& e) {
+                    std::cerr << "Error with acceptor: " << e.what() << std::endl;
+                    std::abort();
+                }
+                auto res = IOResult{
+                    .type = IOResultType::WebSocketConnected,
+                    .ws = std::move(ws)};
+                ioResults.enqueue(std::move(res));
+                return;
+            });
+        std::cout << "done async accepting" << std::endl;
     }
 
     class App {
     public:
-        App() : showButton1_{true},
+        App() : ioc_{1},
+                ioResults_{5},
+                showButton1_{true},
                 showButton2_{false},
-                threadPool_{1},
-                ioc_{1} {
-            pendingIOResult_ = threadPool_.enqueue(openAcceptor, std::ref(ioc_));
+                timer_{ioc_, std::chrono::seconds(5)} {
+            async_waitForWebsocketConnection(ioc_, ioResults_);
+            timer_.async_wait([](const boost::system::error_code& ec) {
+                if (!ec) {
+                    std::cout << "Timer expired 1!" << std::endl;
+                } else {
+                    std::cout << "Timer expired 2!" << std::endl;
+                }
+            });
+            std::cout << "starting io thread" << std::endl;
+            ioThread_ = std::thread([this]() { ioc_.run(); });
         };
         ~App() {
-            std::cout<<"App destructor called" << std::endl;
+            std::cout << "App destructor called" << std::endl;
             ioc_.stop();
+            ioThread_.join();
+            std::cout << "App destructor done" << std::endl;
         };
         App(const App& other) = delete;
         App& operator=(const App& other) = delete;
@@ -149,25 +139,23 @@ namespace fast_led_teleop::desktop {
             uiEventsToProcess_.clear();
         };
 
-        void processIOResult() {
-            if (!pendingIOResult_.has_value()) {
-                return;
-            }
-            auto& fut = pendingIOResult_.value();
-            if (fut.wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
-                return;
-            }
+        void processIOResults() {
+            static IOResult res;
+            while (ioResults_.try_dequeue(res)) {
+                switch (res.type) {
+                case IOResultType::WebSocketConnected:
+                    std::cout << "Websocket connected io result" << std::endl;
+                    ws_ = std::move(res.ws);
+                    ws_->async_read(buffer_,[](boost::system::error_code ec, std::size_t num_bytes){
+                        std::cout << "ec received" << ec << std::endl;
+                        std::cout <<"bytes received" << num_bytes << std::endl;
+                    });
+                    break;
 
-            // Has a ready IOResult so process it
-            auto res = fut.get();
-            pendingIOResult_.reset();
-            switch (res.type) {
-            case IOResultType::AcceptorOpened:
-                acceptor_ = std::move(res.acceptor);
-                pendingIOResult_ = threadPool_.enqueue(waitForWebsocketConnection, std::ref(ioc_), std::ref(acceptor_.value()));
-                break;
-            case IOResultType::WebSocketConnected:
-                throw std::runtime_error("Not implemented yet");
+                case IOResultType::Canceled:
+                    std::cout << "IO cancelled" << std::endl;
+                    break;
+                }
             }
         };
 
@@ -200,13 +188,15 @@ namespace fast_led_teleop::desktop {
         };
 
     private:
-        ThreadPool threadPool_;
+        std::thread ioThread_;
         asio::io_context ioc_;
+        moodycamel::ReaderWriterQueue<IOResult> ioResults_;
+        std::unique_ptr<websocket::stream<tcp::socket>> ws_;
+        beast::flat_buffer buffer_;
         bool showButton1_;
         bool showButton2_;
         std::vector<UIEvent> uiEventsToProcess_;
-        std::optional<std::future<IOResult>> pendingIOResult_;
-        std::optional<tcp::acceptor> acceptor_;
+        asio::steady_timer timer_;
     };
 
     int runApp(const std::atomic<bool>& stopFlag) {
@@ -233,7 +223,7 @@ namespace fast_led_teleop::desktop {
 
             // Core app logic
             app.processUiEvents();
-            app.processIOResult();
+            app.processIOResults();
             app.render();
 
             // ImGui::ShowDemoWindow();
@@ -251,14 +241,16 @@ namespace fast_led_teleop::desktop {
              */
             glfwSwapBuffers(window);
         }
-        std::cout<< "Exited loop" << std::endl;
+        std::cout << "Exited loop" << std::endl;
 
         ImGui_ImplOpenGL3_Shutdown();
         ImGui_ImplGlfw_Shutdown();
         ImGui::DestroyContext();
 
         glfwDestroyWindow(window);
+        std::cout << "calling terminate" << std::endl;
         glfwTerminate();
+        std::cout << "terminate done" << std::endl;
         return 0;
     }
 }

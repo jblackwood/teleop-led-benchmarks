@@ -6,7 +6,6 @@
 namespace utils = fast_led_teleop::utils;
 
 int main() {
-    auto addTwo = [](int x, int y) { return x + y; };
     auto resultv1 =
         utils::callV1(4, 10, [](int arg1, int arg2) { return arg1 - arg2; });
     std::cout << resultv1 << std::endl;
@@ -17,6 +16,5 @@ int main() {
 
     std::atomic<bool> stopFlag{false};
     fast_led_teleop::desktop::runApp(stopFlag);
-
     return 0;
 }

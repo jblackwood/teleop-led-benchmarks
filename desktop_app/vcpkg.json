@@ -1,5 +1,6 @@
 {
   "dependencies": [
+    "boost-beast",
     "glfw3",
     "gtest",
     {
@@ -10,6 +11,6 @@
       ]
     },
     "nlohmann-json",
-    "boost-beast"
+    "readerwriterqueue"
   ]
 }
