@@ -246,8 +246,8 @@ namespace fast_led_teleop::desktop {
          */
         glfwSwapBuffers(window);
 
-        // Need to capture window pointer by value or else
-        // it pops off the stack frame and get's overwritten, causing bugs.
+        // Need to capture window pointer by value because arg value
+        // pops off the stack frame causing bugs.
         asio::post(s.ioc, [&s, window, &stopFlag]() {
             runAppLoop(s, window, stopFlag);
         });
