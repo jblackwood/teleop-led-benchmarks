@@ -51,25 +51,6 @@ static void shutdown_signaler(TimerHandle_t xTimer)
     xSemaphoreGive(shutdown_sema);
 }
 
-#if CONFIG_WEBSOCKET_URI_FROM_STDIN
-static void get_string(char *line, size_t size)
-{
-    int count = 0;
-    while (count < size) {
-        int c = fgetc(stdin);
-        if (c == '\n') {
-            line[count] = '\0';
-            break;
-        } else if (c > 0 && c < 127) {
-            line[count] = c;
-            ++count;
-        }
-        vTaskDelay(10 / portTICK_PERIOD_MS);
-    }
-}
-
-#endif /* CONFIG_WEBSOCKET_URI_FROM_STDIN */
-
 static void websocket_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
 {
     esp_websocket_event_data_t *data = (esp_websocket_event_data_t *)event_data;
