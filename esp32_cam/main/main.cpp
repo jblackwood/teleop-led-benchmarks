@@ -55,13 +55,15 @@ static void websocket_event_handler(void *handler_args, esp_event_base_t base, i
 {
     esp_websocket_event_data_t *data = (esp_websocket_event_data_t *)event_data;
     switch (event_id) {
-    case WEBSOCKET_EVENT_BEGIN:
+    case WEBSOCKET_EVENT_BEGIN: {
         ESP_LOGI(TAG, "WEBSOCKET_EVENT_BEGIN");
         break;
-    case WEBSOCKET_EVENT_CONNECTED:
+    }
+    case WEBSOCKET_EVENT_CONNECTED: {
         ESP_LOGI(TAG, "WEBSOCKET_EVENT_CONNECTED");
         break;
-    case WEBSOCKET_EVENT_DISCONNECTED:
+    }
+    case WEBSOCKET_EVENT_DISCONNECTED: {
         ESP_LOGI(TAG, "WEBSOCKET_EVENT_DISCONNECTED");
         log_error_if_nonzero("HTTP status code",  data->error_handle.esp_ws_handshake_status_code);
         if (data->error_handle.error_type == WEBSOCKET_ERROR_TYPE_TCP_TRANSPORT) {
@@ -70,7 +72,8 @@ static void websocket_event_handler(void *handler_args, esp_event_base_t base, i
             log_error_if_nonzero("captured as transport's socket errno",  data->error_handle.esp_transport_sock_errno);
         }
         break;
-    case WEBSOCKET_EVENT_DATA:
+    }
+    case WEBSOCKET_EVENT_DATA: {
         ESP_LOGI(TAG, "WEBSOCKET_EVENT_DATA");
         ESP_LOGI(TAG, "Received opcode=%d", data->op_code);
         if (data->op_code == 0x2) { // Opcode 0x2 indicates binary data
@@ -97,7 +100,8 @@ static void websocket_event_handler(void *handler_args, esp_event_base_t base, i
 
         xTimerReset(shutdown_signal_timer, portMAX_DELAY);
         break;
-    case WEBSOCKET_EVENT_ERROR:
+    }
+    case WEBSOCKET_EVENT_ERROR: {
         ESP_LOGI(TAG, "WEBSOCKET_EVENT_ERROR");
         log_error_if_nonzero("HTTP status code",  data->error_handle.esp_ws_handshake_status_code);
         if (data->error_handle.error_type == WEBSOCKET_ERROR_TYPE_TCP_TRANSPORT) {
@@ -106,9 +110,11 @@ static void websocket_event_handler(void *handler_args, esp_event_base_t base, i
             log_error_if_nonzero("captured as transport's socket errno",  data->error_handle.esp_transport_sock_errno);
         }
         break;
-    case WEBSOCKET_EVENT_FINISH:
+    }
+    case WEBSOCKET_EVENT_FINISH: {
         ESP_LOGI(TAG, "WEBSOCKET_EVENT_FINISH");
         break;
+    }
     }
 }
 
@@ -175,7 +181,7 @@ static void websocket_app_start(void)
     // Sending text data longer than ws buffer (default 1024)
     ESP_LOGI(TAG, "Sending text longer than ws buffer (default 1024)");
     const int size = 2000;
-    char *long_data = malloc(size);
+    char *long_data =(char *) malloc(size);
     memset(long_data, 'a', size);
     esp_websocket_client_send_text(client, long_data, size, portMAX_DELAY);
     free(long_data);
@@ -186,7 +192,7 @@ static void websocket_app_start(void)
     esp_websocket_client_destroy(client);
 }
 
-void app_main(void)
+extern "C" void app_main(void)
 {
     ESP_LOGI(TAG, "[APP] Startup..");
     ESP_LOGI(TAG, "[APP] Free memory: %" PRIu32 " bytes", esp_get_free_heap_size());

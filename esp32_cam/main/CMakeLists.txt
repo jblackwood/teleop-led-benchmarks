@@ -1,4 +1,4 @@
-set(SRC_FILES "websocket_example.c") # Define source files
+set(SRC_FILES "main.cpp") # Define source files
 set(INCLUDE_DIRS ".") # Define include directories
 set(EMBED_FILES "") # Initialize an empty list for files to embed
 
