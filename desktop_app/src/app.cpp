@@ -211,7 +211,7 @@ namespace fast_led_teleop
                     s.ws_read_buffer.consume(s.ws_read_buffer.size());
                     s.isSendingBlinkCommand = false;
                     s.blinkLatency =
-                        std::chrono::high_resolution_clock::now() - s.timeSendBlinkCommand;
+                        std::chrono::steady_clock::now() - s.timeSendBlinkCommand;
                     ws_async_read(s);
                     break;
                 }
