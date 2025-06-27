@@ -37,7 +37,7 @@
 #define BLINK_GPIO GPIO_NUM_2
 
 
-static constexpr char* TAG = "main";
+static const char* TAG = "main";
 static const std::string RECEIVED_MSG = "received";
 static const uint16_t HOST_PORT = static_cast<uint16_t>(std::stoi(CONFIG_TCP_HOST_IP_PORT));
 static TimerHandle_t shutdownSignalTimer;
@@ -194,7 +194,7 @@ __attribute__((unused)) static void tcpAppStart()
 }
 
 
-extern "C" void appMain(void)
+extern "C" void app_main(void)
 {
     ESP_LOGI(TAG, "[APP] Startup..");
     ESP_LOGI(TAG, "[APP] Free memory: %" PRIu32 " bytes", esp_get_free_heap_size());

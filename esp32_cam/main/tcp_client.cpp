@@ -9,7 +9,7 @@
 
 #include "esp_log.h"
 
-static constexpr char* TAG = "tcpclient";
+static const char* TAG = "tcpclient";
 
 TcpClient::TcpClient(
     const std::string& host,
