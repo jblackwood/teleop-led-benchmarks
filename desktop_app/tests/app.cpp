@@ -15,10 +15,11 @@ namespace fast_led_teleop::tests {
     namespace websocket = beast::websocket;
     namespace asio = boost::asio;
     using tcp = boost::asio::ip::tcp;
+    using ConnectionType = desktop::ConnectionType;
 
     TEST(AppTest, StopApp) {
         std::atomic<bool> stopFlag{false};
-        auto futExitCode = std::async([&stopFlag]() { return desktop::runApp(stopFlag); });
+        auto futExitCode = std::async([&stopFlag]() { return desktop::runApp(stopFlag, ConnectionType::WebSocket); });
         std::this_thread::sleep_for(std::chrono::seconds(2));
         stopFlag.store(true, std::memory_order_relaxed);
         auto exitCode = futExitCode.get();
@@ -27,7 +28,7 @@ namespace fast_led_teleop::tests {
 
     TEST(AppTest, ConnectWebsocket) {
         std::atomic<bool> stopFlag{false};
-        auto futExitCode = std::async([&stopFlag]() { return desktop::runApp(stopFlag); });
+        auto futExitCode = std::async([&stopFlag]() { return desktop::runApp(stopFlag, ConnectionType::WebSocket); });
         std::this_thread::sleep_for(std::chrono::seconds(2));
         asio::io_context ioc{};
         tcp::resolver resolver{ioc};

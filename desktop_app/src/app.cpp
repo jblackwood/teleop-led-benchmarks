@@ -1,3 +1,4 @@
+#include "app.hpp"
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
@@ -53,14 +54,7 @@ namespace fast_led_teleop
             std::unique_ptr<tcp::socket> tcp_sock = nullptr;
         };
 
-        enum class ConnectionType
-        {
-            WebSocket,
-            CustomTcp
-        };
         constexpr std::array<std::string_view, 2> connectionTypeStrings = {"WebSocket", "CustomTcp"};
-
-        
 
         void async_waitForTcpConnection(asio::io_context& ioc, std::vector<IOResult>& ioResults)
         {
@@ -379,27 +373,8 @@ namespace fast_led_teleop
                              ImGuiWindowFlags_NoNavFocus);
 
             ImGui::Dummy(ImVec2(0.0f, 20.0f));
-
-            // Pass in the preview value visible before opening the combo (it could technically be different contents or not pulled from items[])
             auto idxConnType = static_cast<size_t>(s.connType);
-            auto combo_preview_value = connectionTypeStrings[idxConnType];
-            if (ImGui::BeginCombo("Connection method", combo_preview_value.data()))
-            {
-                for (size_t n = 0; n < connectionTypeStrings.size(); n++)
-                {
-                    const bool is_selected = (idxConnType == n);
-                    if (ImGui::Selectable(connectionTypeStrings[n].data(), is_selected)){
-                        throw std::runtime_error("Can't change conn at runtime yet");
-                    }
-                        
-                    // Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
-                    if (is_selected) {
-                         ImGui::SetItemDefaultFocus();
-                    }
-                }
-                ImGui::EndCombo();
-            }
-
+            ImGui::Text("Connection type: %s", connectionTypeStrings[idxConnType].data());
             if (s.ws == nullptr && s.tcp_sock == nullptr)
             {
                 ImGui::Text("Waiting for esp32 to connect");
@@ -467,9 +442,9 @@ namespace fast_led_teleop
                        { runAppLoop(s, window, stopFlag); });
         }
 
-        int runApp(const std::atomic<bool>& stopFlag)
+        int runApp(const std::atomic<bool>& stopFlag, const ConnectionType connType)
         {
-            AppState s{ConnectionType::CustomTcp};
+            AppState s{connType};
             std::cout << "io results size " << s.ioResults.size() << std::endl;
             glfwInit();
 
