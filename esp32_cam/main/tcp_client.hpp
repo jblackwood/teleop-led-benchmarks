@@ -1,10 +1,12 @@
 #pragma once
-#include <string>
 #include <unistd.h>
 
+#include <string>
 
-class TcpClient {
-public:
+
+class TcpClient
+{
+   public:
     TcpClient(const std::string& host, uint16_t port);
     ~TcpClient();
     int connectToServer();
@@ -12,7 +14,7 @@ public:
     int receiveData(std::string& data);
     void disconnect();
 
-private:
+   private:
     std::string host_ip_;
     uint16_t port_;
     int sock_;

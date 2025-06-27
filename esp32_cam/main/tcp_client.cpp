@@ -1,27 +1,38 @@
 #include "tcp_client.hpp"
-#include "esp_log.h"
-#include <algorithm>
+
 #include <arpa/inet.h>
-#include <cstring>
 #include <sys/socket.h>
 #include <unistd.h>
 
-static const char* TAG = "tcpclient";
+#include <algorithm>
+#include <cstring>
 
-TcpClient::TcpClient(const std::string& host, uint16_t port)
-    : host_ip_(host), port_(port), sock_(-1) {}
+#include "esp_log.h"
+
+static constexpr char* TAG = "tcpclient";
+
+TcpClient::TcpClient(
+    const std::string& host,
+    uint16_t port)
+    : host_ip_(host),
+      port_(port),
+      sock_(-1)
+{
+}
+
 
 TcpClient::~TcpClient()
 {
     disconnect();
 }
 
+
 int TcpClient::connectToServer()
 {
-    struct sockaddr_in dest_addr{};
-    inet_pton(AF_INET, host_ip_.c_str(), &dest_addr.sin_addr);
-    dest_addr.sin_family = AF_INET;
-    dest_addr.sin_port = htons(port_);
+    struct sockaddr_in destAddr{};
+    inet_pton(AF_INET, host_ip_.c_str(), &destAddr.sin_addr);
+    destAddr.sin_family = AF_INET;
+    destAddr.sin_port = htons(port_);
 
     sock_ = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
     if (sock_ < 0)
@@ -30,7 +41,7 @@ int TcpClient::connectToServer()
         return -1;
     }
 
-    if (connect(sock_, reinterpret_cast<struct sockaddr*>(&dest_addr), sizeof(dest_addr)) != 0)
+    if (connect(sock_, reinterpret_cast<struct sockaddr*>(&destAddr), sizeof(destAddr)) != 0)
     {
         close(sock_);
         sock_ = -1;
@@ -52,6 +63,7 @@ int TcpClient::connectToServer()
     return 0;
 }
 
+
 int TcpClient::sendData(const std::string& data)
 {
     if (sock_ < 0)
@@ -67,6 +79,7 @@ int TcpClient::sendData(const std::string& data)
     }
     return 0;
 }
+
 
 // Caller must ensure string is sized correctly)
 int TcpClient::receiveData(std::string& data)
@@ -86,6 +99,7 @@ int TcpClient::receiveData(std::string& data)
 
     return 0;
 }
+
 
 void TcpClient::disconnect()
 {
