@@ -8,8 +8,8 @@
 #include <iostream>
 #include <thread>
 
-namespace fast_led_teleop::tests {
-    namespace desktop = fast_led_teleop::desktop;
+namespace teleop_led_benchmarks::tests {
+    namespace desktop = teleop_led_benchmarks::desktop;
     namespace beast = boost::beast;
     namespace http = beast::http;
     namespace websocket = beast::websocket;

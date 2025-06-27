@@ -2,7 +2,7 @@
 #include <functional>
 #include "utils.hpp"
 
-namespace utils = fast_led_teleop::utils;
+namespace utils = teleop_led_benchmarks::utils;
 
 TEST(FunctionTests, Simple) {
     auto res1 =

@@ -14,7 +14,7 @@
 #include <string>
 #include <vector>
 
-namespace fast_led_teleop
+namespace teleop_led_benchmarks
 {
     namespace desktop
     {

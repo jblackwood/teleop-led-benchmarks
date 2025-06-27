@@ -2,7 +2,7 @@
 #include <atomic>
 #include <iostream>
 
-namespace desktop = fast_led_teleop::desktop;
+namespace desktop = teleop_led_benchmarks::desktop;
 using ConnectionType = desktop::ConnectionType;
 
 int main(int argc, const char** argv)

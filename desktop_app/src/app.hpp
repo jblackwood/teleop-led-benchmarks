@@ -1,7 +1,7 @@
 #pragma once
 #include <atomic>
 
-namespace fast_led_teleop
+namespace teleop_led_benchmarks
 {
     namespace desktop
     {

@@ -1,6 +1,6 @@
 #include <functional>
 
-namespace fast_led_teleop
+namespace teleop_led_benchmarks
 {
     namespace utils
     {
