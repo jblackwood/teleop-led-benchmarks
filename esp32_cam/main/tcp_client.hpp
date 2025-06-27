@@ -15,7 +15,7 @@ class TcpClient
     void disconnect();
 
    private:
-    std::string host_ip_;
+    std::string hostIp_;
     uint16_t port_;
     int sock_;
 };

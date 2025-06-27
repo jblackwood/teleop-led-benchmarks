@@ -147,7 +147,7 @@ static void websocketEventHandler(void* handlerArgs, esp_event_base_t base, int3
 }
 
 
-__attribute__((unused)) static void websocketAppStart()
+static void websocketAppStart()
 {
     esp_websocket_client_config_t websocketCfg = {};
     shutdownSignalTimer = xTimerCreate("Websocket shutdown timer", NO_DATA_TIMEOUT_SEC * 1000 / portTICK_PERIOD_MS,
@@ -166,7 +166,7 @@ __attribute__((unused)) static void websocketAppStart()
 }
 
 
-static void tcpAppStart()
+__attribute__((unused)) static void tcpAppStart()
 {
     // Configure the GPIO
 
@@ -219,6 +219,6 @@ extern "C" void appMain(void)
     // Basic LAN ping goes from 100-500ms down to <10ms with this setting.
     ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
 
-    // websocket_app_start();
-    tcpAppStart();
+    websocketAppStart();
+    // tcpAppStart();
 }

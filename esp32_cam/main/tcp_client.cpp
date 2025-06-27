@@ -14,7 +14,7 @@ static constexpr char* TAG = "tcpclient";
 TcpClient::TcpClient(
     const std::string& host,
     uint16_t port)
-    : host_ip_(host),
+    : hostIp_(host),
       port_(port),
       sock_(-1)
 {
@@ -30,7 +30,7 @@ TcpClient::~TcpClient()
 int TcpClient::connectToServer()
 {
     struct sockaddr_in destAddr{};
-    inet_pton(AF_INET, host_ip_.c_str(), &destAddr.sin_addr);
+    inet_pton(AF_INET, hostIp_.c_str(), &destAddr.sin_addr);
     destAddr.sin_family = AF_INET;
     destAddr.sin_port = htons(port_);
 
