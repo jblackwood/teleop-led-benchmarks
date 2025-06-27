@@ -1,0 +1,14 @@
+BasedOnStyle: Google
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+BreakBeforeBraces: Allman  # Optional: More readable brace style
+MaxEmptyLinesToKeep: 2
+AllowShortFunctionsOnASingleLine: None
+ColumnLimit: 0
+AlignAfterOpenBracket: DontAlign
+DerivePointerAlignment: false
+PointerAlignment: Left
+SpaceAfterCStyleCast: true
+SortIncludes: true
+IncludeBlocks: Regroup

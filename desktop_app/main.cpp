@@ -1,9 +1,11 @@
-#include "app.hpp"
 #include <atomic>
 #include <iostream>
 
+#include "app.hpp"
+
 namespace desktop = teleop_led_benchmarks::desktop;
 using ConnectionType = desktop::ConnectionType;
+
 
 int main(int argc, const char** argv)
 {
