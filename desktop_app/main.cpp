@@ -20,11 +20,11 @@ int main(int argc, const char** argv)
     ConnectionType connType;
     if (connStr == "--websocket")
     {
-        connType = ConnectionType::WebSocket;
+        connType = ConnectionType::WEB_SOCKET;
     }
     else if (connStr == "--customTcp")
     {
-        connType = ConnectionType::CustomTcp;
+        connType = ConnectionType::CUSTOM_TCP;
     }
     else
     {

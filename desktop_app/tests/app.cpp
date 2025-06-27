@@ -29,7 +29,7 @@ TEST(AppTest, StopApp)
 {
     std::atomic<bool> stopFlag{false};
     auto futExitCode = std::async([&stopFlag]()
-        { return desktop::runApp(stopFlag, ConnectionType::WebSocket); });
+        { return desktop::runApp(stopFlag, ConnectionType::WEB_SOCKET); });
     std::this_thread::sleep_for(std::chrono::seconds(2));
     stopFlag.store(true, std::memory_order_relaxed);
     auto exitCode = futExitCode.get();
@@ -41,7 +41,7 @@ TEST(AppTest, ConnectWebsocket)
 {
     std::atomic<bool> stopFlag{false};
     auto futExitCode = std::async([&stopFlag]()
-        { return desktop::runApp(stopFlag, ConnectionType::WebSocket); });
+        { return desktop::runApp(stopFlag, ConnectionType::WEB_SOCKET); });
     std::this_thread::sleep_for(std::chrono::seconds(2));
     asio::io_context ioc{};
     tcp::resolver resolver{ioc};

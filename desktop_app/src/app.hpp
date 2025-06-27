@@ -9,8 +9,8 @@ namespace desktop
 
 enum class ConnectionType
 {
-    WebSocket,
-    CustomTcp
+    WEB_SOCKET,
+    CUSTOM_TCP
 };
 
 

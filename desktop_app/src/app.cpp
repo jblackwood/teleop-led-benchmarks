@@ -31,15 +31,15 @@ using chrono_time_point = std::chrono::steady_clock::time_point;
 using tcp = boost::asio::ip::tcp;
 
 
-constexpr float windowXPadding = 50.0f;
+constexpr float WINDOW_X_PADDING = 50.0f;
 
 
-const static std::string expectedMsg = "received";
+const static std::string EXPECTED_MSG = "received";
 
 
 enum class UIEventType
 {
-    SendButtonClick,
+    SEND_BUTTON_CLICK,
 };
 
 
@@ -51,11 +51,11 @@ struct UIEvent
 
 enum class IOResultType
 {
-    WsConnected,
-    WsMsgReceived,
-    TcpConnected,
-    TcpMessageReceived,
-    Cancelled
+    WS_CONNECTED,
+    WS_MSG_RECEIVED,
+    TCP_CONNECTED,
+    TCP_MESSAGE_RECEIVED,
+    CANCELLED
 };
 
 
@@ -63,14 +63,14 @@ struct IOResult
 {
     IOResultType type;
     std::unique_ptr<websocket::stream<tcp::socket>> ws = nullptr;
-    std::unique_ptr<tcp::socket> tcp_sock = nullptr;
+    std::unique_ptr<tcp::socket> tcpSock = nullptr;
 };
 
 
-constexpr std::array<std::string_view, 2> connectionTypeStrings = {"WebSocket", "CustomTcp"};
+constexpr std::array<std::string_view, 2> CONNECTION_TYPE_STRINGS = {"WebSocket", "CustomTcp"};
 
 
-void async_waitForTcpConnection(asio::io_context& ioc, std::vector<IOResult>& ioResults)
+void asyncWaitForTcpConnection(asio::io_context& ioc, std::vector<IOResult>& ioResults)
 {
     auto const address = asio::ip::make_address("0.0.0.0");
     auto const port = static_cast<unsigned short>(9003);
@@ -93,11 +93,11 @@ void async_waitForTcpConnection(asio::io_context& ioc, std::vector<IOResult>& io
             if (!socket.is_open())
             {
                 std::cout << "Socket not open" << std::endl;
-                ioResults.emplace_back(IOResult{.type = IOResultType::Cancelled});
+                ioResults.emplace_back(IOResult{.type = IOResultType::CANCELLED});
                 return;
             }
-            auto res = IOResult{.type = IOResultType::TcpConnected,
-                .tcp_sock = std::make_unique<tcp::socket>(std::move(socket))};
+            auto res = IOResult{.type = IOResultType::TCP_CONNECTED,
+                .tcpSock = std::make_unique<tcp::socket>(std::move(socket))};
             ioResults.push_back(std::move(res));
             return;
         });
@@ -105,7 +105,7 @@ void async_waitForTcpConnection(asio::io_context& ioc, std::vector<IOResult>& io
 }
 
 
-void async_waitForWebsocketConnection(asio::io_context& ioc, std::vector<IOResult>& ioResults)
+void asyncWaitForWebsocketConnection(asio::io_context& ioc, std::vector<IOResult>& ioResults)
 {
     auto const address = asio::ip::make_address("0.0.0.0");
     auto const port = static_cast<unsigned short>(9002);
@@ -128,7 +128,7 @@ void async_waitForWebsocketConnection(asio::io_context& ioc, std::vector<IOResul
             if (!socket.is_open())
             {
                 std::cout << "Socket not open" << std::endl;
-                ioResults.emplace_back(IOResult{.type = IOResultType::Cancelled});
+                ioResults.emplace_back(IOResult{.type = IOResultType::CANCELLED});
                 return;
             }
 
@@ -158,7 +158,7 @@ void async_waitForWebsocketConnection(asio::io_context& ioc, std::vector<IOResul
                 std::cerr << "Error with acceptor: " << e.what() << std::endl;
                 std::abort();
             }
-            auto res = IOResult{.type = IOResultType::WsConnected, .ws = std::move(ws)};
+            auto res = IOResult{.type = IOResultType::WS_CONNECTED, .ws = std::move(ws)};
             ioResults.push_back(std::move(res));
             return;
         });
@@ -173,11 +173,11 @@ struct AppState
     std::vector<IOResult> ioResults;
     ConnectionType connType;
 
-    std::unique_ptr<tcp::socket> tcp_sock;
-    std::string tcp_read_buf;
+    std::unique_ptr<tcp::socket> tcpSock;
+    std::string tcpReadBuf;
 
     std::unique_ptr<websocket::stream<tcp::socket>> ws;
-    beast::flat_buffer ws_read_buffer;
+    beast::flat_buffer wsReadBuffer;
 
     bool isSendingBlinkCommand;
     chrono_time_point timeSendBlinkCommand;
@@ -186,7 +186,7 @@ struct AppState
     AppState(ConnectionType initialConnType)
         : ioc{1},
           connType{initialConnType},
-          tcp_read_buf(expectedMsg.size(), '\0'),  // always expect "received" for now
+          tcpReadBuf(EXPECTED_MSG.size(), '\0'),  // always expect "received" for now
           isSendingBlinkCommand{false},
           blinkLatency{0.0f}
 
@@ -194,14 +194,14 @@ struct AppState
         std::cout << "Creating app state" << std::endl;
         switch (connType)
         {
-            case ConnectionType::WebSocket:
+            case ConnectionType::WEB_SOCKET:
             {
-                async_waitForWebsocketConnection(ioc, ioResults);
+                asyncWaitForWebsocketConnection(ioc, ioResults);
                 break;
             }
-            case ConnectionType::CustomTcp:
+            case ConnectionType::CUSTOM_TCP:
             {
-                async_waitForTcpConnection(ioc, ioResults);
+                asyncWaitForTcpConnection(ioc, ioResults);
                 break;
             }
         }
@@ -223,12 +223,12 @@ void handleSendButtonClick(AppState& s)
     s.timeSendBlinkCommand = std::chrono::steady_clock::now();
     switch (s.connType)
     {
-        case ConnectionType::WebSocket:
+        case ConnectionType::WEB_SOCKET:
         {
             s.ws->async_write(boost::asio::buffer("button clicked\n"),
-                [](boost::system::error_code ec, std::size_t bytes_transferred)
+                [](boost::system::error_code ec, std::size_t bytesTransferred)
                 {
-                    (void) bytes_transferred;
+                    (void) bytesTransferred;
                     if (ec)
                     {
                         std::cout << "Error writing to websocket" << std::endl;
@@ -237,13 +237,13 @@ void handleSendButtonClick(AppState& s)
                 });
             break;
         }
-        case ConnectionType::CustomTcp:
+        case ConnectionType::CUSTOM_TCP:
         {
             std::cout << "sending tcp click" << std::endl;
-            asio::async_write(*s.tcp_sock, asio::buffer("button clicked\n"),
-                [](boost::system::error_code ec, std::size_t bytes_transferred)
+            asio::async_write(*s.tcpSock, asio::buffer("button clicked\n"),
+                [](boost::system::error_code ec, std::size_t bytesTransferred)
                 {
-                    (void) bytes_transferred;
+                    (void) bytesTransferred;
                     std::cout << "done writing to tcp" << std::endl;
                     if (ec)
                     {
@@ -263,7 +263,7 @@ void processUiEvents(AppState& s)
     {
         switch (e.type)
         {
-            case UIEventType::SendButtonClick:
+            case UIEventType::SEND_BUTTON_CLICK:
             {
                 handleSendButtonClick(s);
                 break;
@@ -274,13 +274,13 @@ void processUiEvents(AppState& s)
 };
 
 
-void ws_async_read(AppState& s)
+void wsAsyncRead(AppState& s)
 {
     s.ws->async_read(
-        s.ws_read_buffer,
-        [&s](boost::system::error_code ec, std::size_t num_bytes) mutable
+        s.wsReadBuffer,
+        [&s](boost::system::error_code ec, std::size_t numBytes) mutable
         {
-            std::cout << "ws bytes received " << num_bytes << "\n";
+            std::cout << "ws bytes received " << numBytes << "\n";
             if (ec == websocket::error::closed)
             {
                 std::cout << "Websocket closed" << std::endl;
@@ -292,12 +292,12 @@ void ws_async_read(AppState& s)
                 std::cout << "ec received " << ec << std::endl;
                 return;
             }
-            if (num_bytes == 0)
+            if (numBytes == 0)
             {
                 return;
             }
             IOResult res{};
-            res.type = IOResultType::WsMsgReceived;
+            res.type = IOResultType::WS_MSG_RECEIVED;
             s.ioResults.push_back(std::move(res));
             return;
         });
@@ -306,13 +306,13 @@ void ws_async_read(AppState& s)
 void tcpAsyncRead(AppState& s)
 {
     asio::async_read(
-        *s.tcp_sock,
-        asio::buffer(s.tcp_read_buf),
-        [&s](const boost::system::error_code& ec, std::size_t bytes_transferred)
+        *s.tcpSock,
+        asio::buffer(s.tcpReadBuf),
+        [&s](const boost::system::error_code& ec, std::size_t bytesTransferred)
         {
-            std::cout << "tcp received bytes transferred " << bytes_transferred
+            std::cout << "tcp received bytes transferred " << bytesTransferred
                       << std::endl;
-            (void) bytes_transferred;
+            (void) bytesTransferred;
             if (ec)
             {
                 std::cout << "tcp received failed" << std::endl;
@@ -320,7 +320,7 @@ void tcpAsyncRead(AppState& s)
             }
 
             IOResult res{};
-            res.type = IOResultType::TcpMessageReceived;
+            res.type = IOResultType::TCP_MESSAGE_RECEIVED;
             s.ioResults.push_back(std::move(res));
         });
 }
@@ -332,44 +332,44 @@ void processIOResults(AppState& s)
     {
         switch (res.type)
         {
-            case IOResultType::WsConnected:
+            case IOResultType::WS_CONNECTED:
             {
                 std::cout << "WsConnected" << std::endl;
                 s.ws = std::move(res.ws);
-                ws_async_read(s);
+                wsAsyncRead(s);
                 break;
             }
 
-            case IOResultType::WsMsgReceived:
+            case IOResultType::WS_MSG_RECEIVED:
             {
-                std::string_view msg{static_cast<const char*>(s.ws_read_buffer.data().data()),
-                    s.ws_read_buffer.size()};
+                std::string_view msg{static_cast<const char*>(s.wsReadBuffer.data().data()),
+                    s.wsReadBuffer.size()};
                 std::cout << "WsMsgReceived " << msg << std::endl;
-                s.ws_read_buffer.consume(s.ws_read_buffer.size());
+                s.wsReadBuffer.consume(s.wsReadBuffer.size());
                 s.isSendingBlinkCommand = false;
                 s.blinkLatency = std::chrono::steady_clock::now() - s.timeSendBlinkCommand;
-                ws_async_read(s);
+                wsAsyncRead(s);
                 break;
             }
 
-            case IOResultType::TcpConnected:
+            case IOResultType::TCP_CONNECTED:
             {
                 std::cout << "TcpConnected" << std::endl;
-                s.tcp_sock = std::move(res.tcp_sock);
+                s.tcpSock = std::move(res.tcpSock);
                 tcpAsyncRead(s);
                 break;
             }
 
-            case IOResultType::TcpMessageReceived:
+            case IOResultType::TCP_MESSAGE_RECEIVED:
             {
-                std::cout << "TcpMessageReceived " << s.tcp_read_buf << std::endl;
+                std::cout << "TcpMessageReceived " << s.tcpReadBuf << std::endl;
                 s.isSendingBlinkCommand = false;
                 s.blinkLatency = std::chrono::steady_clock::now() - s.timeSendBlinkCommand;
                 tcpAsyncRead(s);
                 break;
             }
 
-            case IOResultType::Cancelled:
+            case IOResultType::CANCELLED:
             {
                 std::cout << "IO cancelled" << std::endl;
                 break;
@@ -383,9 +383,9 @@ void processIOResults(AppState& s)
 void render(AppState& s)
 {
     ImGuiViewport* viewport = ImGui::GetMainViewport();
-    ImVec2 windowPos(windowXPadding, viewport->WorkPos.y);
+    ImVec2 windowPos(WINDOW_X_PADDING, viewport->WorkPos.y);
     ImGui::SetNextWindowPos(windowPos);
-    ImVec2 windowSize((viewport->WorkSize.x) - 2 * windowXPadding, viewport->WorkSize.y);
+    ImVec2 windowSize((viewport->WorkSize.x) - 2 * WINDOW_X_PADDING, viewport->WorkSize.y);
     ImGui::SetNextWindowSize(windowSize);
     ImGui::Begin("Full Screen Window", nullptr,
         ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
@@ -394,8 +394,8 @@ void render(AppState& s)
 
     ImGui::Dummy(ImVec2(0.0f, 20.0f));
     auto idxConnType = static_cast<size_t>(s.connType);
-    ImGui::Text("Connection type: %s", connectionTypeStrings[idxConnType].data());
-    if (s.ws == nullptr && s.tcp_sock == nullptr)
+    ImGui::Text("Connection type: %s", CONNECTION_TYPE_STRINGS[idxConnType].data());
+    if (s.ws == nullptr && s.tcpSock == nullptr)
     {
         ImGui::Text("Waiting for esp32 to connect");
     }
@@ -405,7 +405,7 @@ void render(AppState& s)
         ImGui::BeginDisabled(s.isSendingBlinkCommand);
         if (ImGui::Button("Send blink command"))
         {
-            s.uiEventsToProcess.push_back(UIEvent{.type = UIEventType::SendButtonClick});
+            s.uiEventsToProcess.push_back(UIEvent{.type = UIEventType::SEND_BUTTON_CLICK});
         };
         ImGui::EndDisabled();
         ImGui::SameLine();
@@ -444,9 +444,9 @@ void runAppLoop(AppState& s, GLFWwindow* window, const std::atomic<bool>& stopFl
 
     // ImGui render
     ImGui::Render();
-    int display_w, display_h;
-    glfwGetFramebufferSize(window, &display_w, &display_h);
-    glViewport(0, 0, display_w, display_h);
+    int displayW, displayH;
+    glfwGetFramebufferSize(window, &displayW, &displayH);
+    glViewport(0, 0, displayW, displayH);
     glClear(GL_COLOR_BUFFER_BIT);
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
