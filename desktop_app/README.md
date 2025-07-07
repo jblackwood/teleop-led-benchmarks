@@ -1,3 +1,6 @@
+# Teleop LED Benchmarks
+The goal of this project is to benchmark latency when teleoping an led across different network protocols.
+
 # Notes on setting up dev environment
 
 Install vcpkg. Set vcpkg root as an environment variable (with  cmake user presets).
